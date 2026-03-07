@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "peptide-dpt"
+version = "0.1.0"
+description = "PSMA-targeted peptidomimetic drug discovery via SELFIES-based LLM with GRPO"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "selfies>=2.1.1",
+    "rdkit>=2023.9.1",
+    "chembl-webresource-client>=0.10.9",
+    "requests>=2.31.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "tqdm>=4.66.0",
+    "datasets>=2.14.0",
+    "huggingface_hub>=0.19.0",
+    "transformers>=4.44.0",
+    "trl>=0.10.0",
+    "torch>=2.1.0",
+    "pyyaml>=6.0",
+    "biopython>=1.81",
+    "scipy>=1.11.0",
+    "wandb>=0.16.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tokenizer*", "training*", "reward*", "docking*", "inference*", "data*"]

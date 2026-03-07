@@ -1,0 +1,44 @@
+model:
+  checkpoint: checkpoints/finetune/best    # from Phase 2
+
+tokenizer:
+  path: tokenizer/selfies_vocab.json
+
+reward:
+  weights:
+    docking: 0.60
+    sa_score: 0.25
+    diversity: 0.15
+  docking:
+    receptor_pdb: docking/8BOW_receptor.pdb
+    center_x: null                         # auto-computed from PSMA-617 centroid
+    center_y: null
+    center_z: null
+    box_size: 22.0
+    exhaustiveness: 8
+    gnina_bin: gnina                       # must be in PATH
+  diversity:
+    reference_smiles_path: data/processed/psma_known_smiles.txt
+    fingerprint: morgan
+    radius: 2
+    n_bits: 2048
+
+grpo:
+  output_dir: checkpoints/grpo
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 8
+  learning_rate: 1e-5
+  lr_scheduler_type: constant_with_warmup
+  warmup_steps: 50
+  bf16: true
+  # GRPO-specific
+  group_size: 8                            # G: samples per prompt
+  kl_coef: 0.05                           # beta: KL penalty
+  clip_range: 0.2                          # epsilon: PPO clip
+  max_new_tokens: 200
+  temperature: 1.0
+  logging_steps: 10
+  save_steps: 100
+  report_to: wandb
+  run_name: peptide-dpt-grpo

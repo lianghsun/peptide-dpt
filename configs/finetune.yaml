@@ -1,0 +1,30 @@
+model:
+  checkpoint: checkpoints/pretrain/best    # from Phase 1
+
+tokenizer:
+  path: tokenizer/selfies_vocab.json
+
+data:
+  train_path: data/processed/psma_sft_train.jsonl
+  val_path: data/processed/psma_sft_val.jsonl
+
+training:
+  output_dir: checkpoints/finetune
+  num_train_epochs: 20
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 16
+  gradient_accumulation_steps: 2
+  learning_rate: 5e-5                      # lower LR to prevent forgetting
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  bf16: true
+  logging_steps: 10
+  eval_steps: 50
+  save_steps: 50
+  save_total_limit: 5
+  load_best_model_at_end: true
+  metric_for_best_model: eval_loss
+  early_stopping_patience: 5
+  report_to: wandb
+  run_name: peptide-dpt-finetune-psma
