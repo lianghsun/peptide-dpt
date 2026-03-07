@@ -60,7 +60,11 @@ def search_uniprot_structures(uniprot_id: str) -> list[str]:
     r = requests.post(RCSB_SEARCH, json=query, timeout=30)
     r.raise_for_status()
     data = r.json()
-    return [h["identifier"] for h in data.get("result_set", [])]
+    result_set = data.get("result_set", [])
+    # result_set is a list of strings (entry IDs), not dicts
+    if result_set and isinstance(result_set[0], str):
+        return result_set
+    return [h["identifier"] for h in result_set]
 
 
 def get_entry_ligands(pdb_id: str) -> list[dict]:
