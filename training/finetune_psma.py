@@ -10,12 +10,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 
-import torch
 import yaml
-from torch.utils.data import Dataset
 from transformers import (
     AutoModelForCausalLM,
     EarlyStoppingCallback,
@@ -24,32 +21,10 @@ from transformers import (
 )
 
 from tokenizer.selfies_tokenizer import SelfiesTokenizer
-from training.pretrain import collate_fn
+from training.dataset import SelfiesDataset, collate_fn
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
-
-
-class PSMADataset(Dataset):
-    def __init__(self, jsonl_path: str, max_length: int = 256):
-        self.records = []
-        with open(jsonl_path) as f:
-            for line in f:
-                r = json.loads(line)
-                self.records.append(r)
-        self.max_length = max_length
-
-    def __len__(self):
-        return len(self.records)
-
-    def __getitem__(self, idx):
-        r = self.records[idx]
-        input_ids = r["input_ids"][: self.max_length]
-        labels = r["labels"][: self.max_length]
-        return {
-            "input_ids": torch.tensor(input_ids, dtype=torch.long),
-            "labels": torch.tensor(labels, dtype=torch.long),
-        }
 
 
 def main():
@@ -74,8 +49,9 @@ def main():
         )
         model.resize_token_embeddings(tokenizer.vocab_size)
 
-    train_ds = PSMADataset(cfg["data"]["train_path"])
-    val_ds = PSMADataset(cfg["data"]["val_path"])
+    max_len = cfg["tokenizer"].get("max_length", 256)
+    train_ds = SelfiesDataset(cfg["data"]["train_path"], split="train", max_length=max_len)
+    val_ds   = SelfiesDataset(cfg["data"]["val_path"],   split="validation", max_length=max_len)
     log.info(f"Train: {len(train_ds)}, Val: {len(val_ds)}")
 
     t = cfg["training"]

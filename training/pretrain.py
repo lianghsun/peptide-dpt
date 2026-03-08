@@ -3,76 +3,37 @@
 Uses Gemma-3-1b architecture with random initialization and
 our custom SELFIES vocabulary.
 
+Data path formats (auto-detected):
+  data/processed/pretrain_train.jsonl          → local JSONL
+  data/processed/pretrain/                     → HF dataset dir (snapshot_download)
+  lianghsun/peptidomimetic-pretrain            → HF Hub repo ID
+
 Usage:
+    # Single GPU
     python -m training.pretrain --config configs/pretrain.yaml
+
+    # Multi-GPU (B200x8)
+    torchrun --nproc_per_node=8 -m training.pretrain --config configs/pretrain_b200.yaml
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-from pathlib import Path
 
-import torch
 import yaml
-from torch.utils.data import Dataset
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
     Trainer,
     TrainingArguments,
-    EarlyStoppingCallback,
 )
 
 from tokenizer.selfies_tokenizer import SelfiesTokenizer
+from training.dataset import SelfiesDataset, collate_fn
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
-
-
-class SelfiesDataset(Dataset):
-    def __init__(self, jsonl_path: str, max_length: int = 256):
-        self.records = []
-        with open(jsonl_path) as f:
-            for line in f:
-                r = json.loads(line)
-                self.records.append(r)
-        self.max_length = max_length
-
-    def __len__(self):
-        return len(self.records)
-
-    def __getitem__(self, idx):
-        r = self.records[idx]
-        input_ids = r["input_ids"][: self.max_length]
-        labels = r["labels"][: self.max_length]
-        return {
-            "input_ids": torch.tensor(input_ids, dtype=torch.long),
-            "labels": torch.tensor(labels, dtype=torch.long),
-        }
-
-
-def collate_fn(batch: list[dict], pad_id: int = 0) -> dict:
-    max_len = max(b["input_ids"].size(0) for b in batch)
-    input_ids, labels, attention_mask = [], [], []
-    for b in batch:
-        n = b["input_ids"].size(0)
-        pad = max_len - n
-        input_ids.append(
-            torch.cat([b["input_ids"], torch.full((pad,), pad_id, dtype=torch.long)])
-        )
-        labels.append(
-            torch.cat([b["labels"], torch.full((pad,), -100, dtype=torch.long)])
-        )
-        attention_mask.append(
-            torch.cat([torch.ones(n, dtype=torch.long), torch.zeros(pad, dtype=torch.long)])
-        )
-    return {
-        "input_ids": torch.stack(input_ids),
-        "labels": torch.stack(labels),
-        "attention_mask": torch.stack(attention_mask),
-    }
 
 
 def build_model(config_dict: dict, vocab_size: int) -> AutoModelForCausalLM:
@@ -105,9 +66,10 @@ def main():
     tokenizer = SelfiesTokenizer.load(cfg["tokenizer"]["path"])
     log.info(f"Tokenizer vocab size: {tokenizer.vocab_size}")
 
-    train_ds = SelfiesDataset(cfg["data"]["train_path"], cfg["tokenizer"]["max_length"])
-    val_ds = SelfiesDataset(cfg["data"]["val_path"], cfg["tokenizer"]["max_length"])
-    log.info(f"Train: {len(train_ds)}, Val: {len(val_ds)}")
+    max_len = cfg["tokenizer"]["max_length"]
+    train_ds = SelfiesDataset(cfg["data"]["train_path"], split="train", max_length=max_len)
+    val_ds   = SelfiesDataset(cfg["data"]["val_path"],   split="validation", max_length=max_len)
+    log.info(f"Train: {len(train_ds):,}, Val: {len(val_ds):,}")
 
     model = build_model(cfg, tokenizer.vocab_size)
 
