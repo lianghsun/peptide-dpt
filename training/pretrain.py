@@ -96,6 +96,7 @@ def build_model(config_dict: dict, vocab_size: int) -> AutoModelForCausalLM:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/pretrain.yaml")
+    parser.add_argument("--resume", default=None, help="Resume from checkpoint path")
     args = parser.parse_args()
 
     with open(args.config) as f:
@@ -124,14 +125,15 @@ def main():
         fp16=t.get("fp16", False),
         bf16=t.get("bf16", True),
         logging_steps=t["logging_steps"],
-        eval_strategy="steps",
+        eval_strategy=t.get("eval_strategy", "steps"),
         eval_steps=t["eval_steps"],
-        save_strategy="steps",
+        save_strategy=t.get("save_strategy", "steps"),
         save_steps=t["save_steps"],
         save_total_limit=t["save_total_limit"],
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
         dataloader_num_workers=t.get("dataloader_num_workers", 0),
+        deepspeed=t.get("deepspeed", None),
         report_to=t.get("report_to", "none"),
         run_name=t.get("run_name", "pretrain"),
     )
@@ -145,7 +147,7 @@ def main():
     )
 
     log.info("Starting pretraining...")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=args.resume)
     trainer.save_model(f"{t['output_dir']}/best")
     log.info(f"Model saved → {t['output_dir']}/best")
 

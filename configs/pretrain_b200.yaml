@@ -1,0 +1,36 @@
+model:
+  architecture: google/gemma-3-1b
+  from_scratch: true
+
+tokenizer:
+  path: tokenizer/selfies_vocab.json
+  max_length: 256
+
+data:
+  train_path: data/processed/pretrain_train.jsonl
+  val_path: data/processed/pretrain_val.jsonl
+
+training:
+  output_dir: checkpoints/pretrain
+  num_train_epochs: 10
+  # 8x B200 (192GB each): 1B model fits easily, use large batch
+  per_device_train_batch_size: 128
+  per_device_eval_batch_size: 128
+  gradient_accumulation_steps: 1       # effective batch = 128 * 8 = 1024
+  learning_rate: 3e-4
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  fp16: false
+  bf16: true
+  logging_steps: 50
+  eval_strategy: steps
+  eval_steps: 500
+  save_strategy: steps
+  save_steps: 500
+  save_total_limit: 3
+  load_best_model_at_end: true
+  dataloader_num_workers: 8
+  deepspeed: ds_configs/zero2.json
+  report_to: wandb
+  run_name: peptide-dpt-pretrain-b200
