@@ -14,7 +14,7 @@ training:
   per_device_train_batch_size: 16
   per_device_eval_batch_size: 16
   gradient_accumulation_steps: 2
-  learning_rate: 5e-5                      # lower LR to prevent forgetting
+  learning_rate: 0.00005                   # lower LR to prevent forgetting
   lr_scheduler_type: cosine
   warmup_ratio: 0.1
   weight_decay: 0.01
