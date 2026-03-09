@@ -80,6 +80,12 @@ class SelfiesTokenizer(PreTrainedTokenizerBase):
 
     # Keep token2id / id2token as aliases for backward compat
     @property
+    def added_tokens_decoder(self) -> dict:
+        # Required by PreTrainedTokenizerBase.save_pretrained; we manage
+        # our own vocab via save_vocabulary() so no HF added tokens needed.
+        return {}
+
+    @property
     def token2id(self) -> dict[str, int]:
         return self._selfies_vocab
 
