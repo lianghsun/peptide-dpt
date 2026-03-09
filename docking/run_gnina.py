@@ -36,9 +36,11 @@ GNINA_BIN = os.environ.get("GNINA_BIN", "gnina")
 def smiles_to_3d_sdf(smiles: str, out_path: str) -> bool:
     """Generate 3D conformer from SMILES and write SDF. Returns True on success."""
     mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
+    if mol is None or mol.GetNumAtoms() == 0:
         return False
     mol = Chem.AddHs(mol)
+    if mol.GetNumAtoms() == 0:
+        return False
     result = AllChem.EmbedMolecule(mol, AllChem.ETKDGv3())
     if result != 0:
         # Fallback to random coordinates
