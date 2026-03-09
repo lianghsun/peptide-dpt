@@ -120,9 +120,15 @@ class GninaDocking:
                 "--quiet",
             ]
 
+            # Force gnina onto CPU so it doesn't compete with the LLM for VRAM.
+            # Each torchrun rank already occupies one GPU; gnina runs fast
+            # enough on CPU for single-ligand docking (~5-30 s per call).
+            env = os.environ.copy()
+            env["CUDA_VISIBLE_DEVICES"] = ""
+
             try:
                 result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=120
+                    cmd, capture_output=True, text=True, timeout=120, env=env
                 )
                 score = parse_gnina_score(result.stdout)
                 if score is None:
