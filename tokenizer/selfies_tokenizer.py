@@ -2,16 +2,20 @@
 
 Each SELFIES atomic symbol (e.g. [C], [=N], [Ring1]) maps to one token ID.
 Special tokens: PAD=0, BOS=1, EOS=2, UNK=3.
+
+Inherits from PreTrainedTokenizerBase so it can be passed as
+processing_class to TRL's GRPOTrainer.
 """
 
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 import selfies as sf
+from transformers import PreTrainedTokenizerBase
+from transformers.tokenization_utils_base import BatchEncoding
 
 
 SPECIAL_TOKENS = ["[PAD]", "[BOS]", "[EOS]", "[UNK]"]
@@ -21,35 +25,70 @@ EOS_ID = 2
 UNK_ID = 3
 
 
-class SelfiesTokenizer:
-    def __init__(self, vocab: dict[str, int]):
-        self.token2id: dict[str, int] = vocab
-        self.id2token: dict[int, str] = {v: k for k, v in vocab.items()}
-        self.padding_side = "right"
-        self.model_input_names = ["input_ids", "attention_mask"]
+class SelfiesTokenizer(PreTrainedTokenizerBase):
+    """SELFIES tokenizer compatible with HuggingFace / TRL interfaces."""
+
+    vocab_files_names: dict = {}
+
+    def __init__(self, vocab: dict[str, int], **kwargs):
+        # Set our vocab before super().__init__ so property overrides work
+        self._selfies_vocab: dict[str, int] = vocab
+        self._selfies_id2token: dict[int, str] = {v: k for k, v in vocab.items()}
+
+        super().__init__(
+            pad_token="[PAD]",
+            bos_token="[BOS]",
+            eos_token="[EOS]",
+            unk_token="[UNK]",
+            padding_side="right",
+            truncation_side="right",
+            model_input_names=["input_ids", "attention_mask"],
+            **kwargs,
+        )
+
+    # ------------------------------------------------------------------ #
+    # HuggingFace required overrides                                       #
+    # ------------------------------------------------------------------ #
+
+    @property
+    def vocab_size(self) -> int:
+        return len(self._selfies_vocab)
+
+    def get_vocab(self) -> dict[str, int]:
+        return dict(self._selfies_vocab)
+
+    def save_vocabulary(
+        self, save_directory: str, filename_prefix: Optional[str] = None
+    ) -> Tuple[str]:
+        path = Path(save_directory) / "selfies_vocab.json"
+        with open(path, "w") as f:
+            json.dump(self._selfies_vocab, f, indent=2)
+        return (str(path),)
+
+    # Override token ID properties to always return our constants
+    @property
+    def pad_token_id(self) -> int:
+        return PAD_ID
+
+    @property
+    def bos_token_id(self) -> int:
+        return BOS_ID
+
+    @property
+    def eos_token_id(self) -> int:
+        return EOS_ID
+
+    # Keep token2id / id2token as aliases for backward compat
+    @property
+    def token2id(self) -> dict[str, int]:
+        return self._selfies_vocab
 
     # ------------------------------------------------------------------ #
     # Factory                                                              #
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def from_corpus(cls, selfies_list: List[str]) -> "SelfiesTokenizer":
-        """Build vocab from a corpus of SELFIES strings."""
-        symbols: set[str] = set()
-        for s in selfies_list:
-            try:
-                symbols.update(sf.split_selfies(s))
-            except Exception:
-                continue
-        vocab = {tok: i for i, tok in enumerate(SPECIAL_TOKENS)}
-        for sym in sorted(symbols):
-            if sym not in vocab:
-                vocab[sym] = len(vocab)
-        return cls(vocab)
-
-    @classmethod
     def from_alphabet(cls) -> "SelfiesTokenizer":
-        """Build vocab from SELFIES semantic-robust alphabet (no corpus needed)."""
         alphabet = sorted(sf.get_semantic_robust_alphabet())
         vocab = {tok: i for i, tok in enumerate(SPECIAL_TOKENS)}
         for sym in alphabet:
@@ -66,40 +105,25 @@ class SelfiesTokenizer:
     def save(self, path: str | Path) -> None:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
-            json.dump(self.token2id, f, indent=2)
+            json.dump(self._selfies_vocab, f, indent=2)
 
     # ------------------------------------------------------------------ #
-    # Core API                                                             #
+    # Core encoding / decoding                                            #
     # ------------------------------------------------------------------ #
-
-    @property
-    def vocab_size(self) -> int:
-        return len(self.token2id)
-
-    @property
-    def pad_token_id(self) -> int:
-        return PAD_ID
-
-    @property
-    def bos_token_id(self) -> int:
-        return BOS_ID
-
-    @property
-    def eos_token_id(self) -> int:
-        return EOS_ID
 
     def encode(
         self,
         selfies_str: str,
         add_special_tokens: bool = True,
         max_length: Optional[int] = None,
+        **kwargs,
     ) -> List[int]:
         try:
             symbols = list(sf.split_selfies(selfies_str))
         except Exception:
             return [BOS_ID, EOS_ID] if add_special_tokens else []
 
-        ids = [self.token2id.get(s, UNK_ID) for s in symbols]
+        ids = [self._selfies_vocab.get(s, UNK_ID) for s in symbols]
 
         if add_special_tokens:
             ids = [BOS_ID] + ids + [EOS_ID]
@@ -109,41 +133,61 @@ class SelfiesTokenizer:
 
         return ids
 
-    def decode(self, ids: List[int], skip_special_tokens: bool = True) -> str:
+    def decode(
+        self,
+        token_ids: Union[List[int], "torch.Tensor"],
+        skip_special_tokens: bool = True,
+        **kwargs,
+    ) -> str:
         special = {PAD_ID, BOS_ID, EOS_ID, UNK_ID}
+        if hasattr(token_ids, "tolist"):
+            token_ids = token_ids.tolist()
         tokens = []
-        for i in ids:
+        for i in token_ids:
             if skip_special_tokens and i in special:
                 continue
-            tokens.append(self.id2token.get(i, ""))
+            tokens.append(self._selfies_id2token.get(i, ""))
         return "".join(tokens)
 
     def batch_decode(
         self,
-        sequences: List[List[int]],
+        sequences: Union[List[List[int]], "torch.Tensor"],
         skip_special_tokens: bool = True,
         **kwargs,
     ) -> List[str]:
-        """Decode a batch of token ID lists to SELFIES strings (TRL interface)."""
+        if hasattr(sequences, "tolist"):
+            sequences = sequences.tolist()
         return [self.decode(ids, skip_special_tokens=skip_special_tokens) for ids in sequences]
 
     def __call__(
         self,
-        text,
+        text: Union[str, List[str]],
         return_tensors=None,
-        padding=True,
-        truncation=True,
+        padding: bool = True,
+        truncation: bool = True,
         max_length: Optional[int] = None,
+        add_special_tokens: bool = True,
         **kwargs,
-    ) -> dict:
-        """HuggingFace-compatible tokenizer call (used by TRL GRPOTrainer)."""
+    ) -> BatchEncoding:
         if isinstance(text, str):
             text = [text]
-        result = self.batch_encode(text, max_length=max_length or 512, padding=padding)
+        ml = max_length or 512
+        encoded = [self.encode(t, add_special_tokens=add_special_tokens, max_length=ml) for t in text]
+
+        if padding:
+            max_len = max(len(e) for e in encoded)
+            attention_mask = [[1] * len(e) + [0] * (max_len - len(e)) for e in encoded]
+            encoded = [e + [PAD_ID] * (max_len - len(e)) for e in encoded]
+        else:
+            attention_mask = [[1] * len(e) for e in encoded]
+
+        data = {"input_ids": encoded, "attention_mask": attention_mask}
+
         if return_tensors == "pt":
             import torch
-            result = {k: torch.tensor(v) for k, v in result.items()}
-        return result
+            data = {k: torch.tensor(v) for k, v in data.items()}
+
+        return BatchEncoding(data)
 
     def batch_encode(
         self,
@@ -151,20 +195,7 @@ class SelfiesTokenizer:
         max_length: int = 256,
         padding: bool = True,
     ) -> dict:
-        encoded = [
-            self.encode(s, add_special_tokens=True, max_length=max_length)
-            for s in selfies_list
-        ]
-        if padding:
-            max_len = max(len(e) for e in encoded)
-            attention_mask = [
-                [1] * len(e) + [0] * (max_len - len(e)) for e in encoded
-            ]
-            encoded = [e + [PAD_ID] * (max_len - len(e)) for e in encoded]
-        else:
-            attention_mask = [[1] * len(e) for e in encoded]
-
-        return {"input_ids": encoded, "attention_mask": attention_mask}
+        return self(selfies_list, max_length=max_length, padding=padding)
 
 
 def build_and_save_vocab(output_path: str = "tokenizer/selfies_vocab.json") -> SelfiesTokenizer:
@@ -177,7 +208,6 @@ def build_and_save_vocab(output_path: str = "tokenizer/selfies_vocab.json") -> S
 
 if __name__ == "__main__":
     tok = build_and_save_vocab()
-    # Smoke test
     test = "[C][C][=O][N][C@@H][Branch1][C][C][C][=O][O]"
     ids = tok.encode(test)
     recovered = tok.decode(ids)
