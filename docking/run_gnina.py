@@ -119,7 +119,7 @@ class GninaDocking:
                 "--exhaustiveness", str(self.exhaustiveness),
                 "--num_modes", "1",
                 "--out", out_sdf,
-                "--quiet",
+                "--cnn_scoring", "none",   # skip CNN on CPU (much faster, use Vina affinity)
             ]
 
             # Force gnina onto CPU so it doesn't compete with the LLM for VRAM.
