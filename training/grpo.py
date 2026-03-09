@@ -104,8 +104,8 @@ def main():
         run_name=g.get("run_name", "grpo"),
         # GRPO-specific
         num_generations=g["group_size"],           # G
-        kl_coef=g["kl_coef"],                      # beta
-        cliprange=g["clip_range"],                  # epsilon
+        beta=g["kl_coef"],                         # KL penalty coefficient
+        epsilon=g["clip_range"],                   # PPO clip range
         max_completion_length=g["max_new_tokens"],
         temperature=g.get("temperature", 1.0),
     )
