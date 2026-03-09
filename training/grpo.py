@@ -126,7 +126,7 @@ def main():
         reward_funcs=reward_fn,
         args=grpo_config,
         train_dataset=prompt_dataset,
-        processing_class=None,   # we handle tokenization manually
+        processing_class=tokenizer,  # needed for TRL to decode completions before reward
     )
 
     log.info("Starting GRPO training...")

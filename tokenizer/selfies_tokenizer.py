@@ -25,6 +25,8 @@ class SelfiesTokenizer:
     def __init__(self, vocab: dict[str, int]):
         self.token2id: dict[str, int] = vocab
         self.id2token: dict[int, str] = {v: k for k, v in vocab.items()}
+        self.padding_side = "right"
+        self.model_input_names = ["input_ids", "attention_mask"]
 
     # ------------------------------------------------------------------ #
     # Factory                                                              #
@@ -115,6 +117,33 @@ class SelfiesTokenizer:
                 continue
             tokens.append(self.id2token.get(i, ""))
         return "".join(tokens)
+
+    def batch_decode(
+        self,
+        sequences: List[List[int]],
+        skip_special_tokens: bool = True,
+        **kwargs,
+    ) -> List[str]:
+        """Decode a batch of token ID lists to SELFIES strings (TRL interface)."""
+        return [self.decode(ids, skip_special_tokens=skip_special_tokens) for ids in sequences]
+
+    def __call__(
+        self,
+        text,
+        return_tensors=None,
+        padding=True,
+        truncation=True,
+        max_length: Optional[int] = None,
+        **kwargs,
+    ) -> dict:
+        """HuggingFace-compatible tokenizer call (used by TRL GRPOTrainer)."""
+        if isinstance(text, str):
+            text = [text]
+        result = self.batch_encode(text, max_length=max_length or 512, padding=padding)
+        if return_tensors == "pt":
+            import torch
+            result = {k: torch.tensor(v) for k, v in result.items()}
+        return result
 
     def batch_encode(
         self,
