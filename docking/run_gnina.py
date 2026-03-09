@@ -56,18 +56,26 @@ def smiles_to_3d_sdf(smiles: str, out_path: str) -> bool:
 
 
 def parse_gnina_score(stdout: str) -> float | None:
-    """Parse CNNscore or minimizedAffinity from Gnina stdout."""
+    """Parse minimizedAffinity from Gnina stdout.
+
+    Gnina prints a progress bar '0%   10   20 ...' before the mode table,
+    which also starts with a digit. We wait for the '-----+' separator line
+    that precedes the mode table, then grab the affinity from the first data row.
+    """
+    found_separator = False
     for line in stdout.splitlines():
-        # Gnina output: "   1     -8.5     0.95     0.85"
-        # columns: rank, affinity, CNNscore, CNNaffinity
-        line = line.strip()
-        if line and line[0].isdigit():
-            parts = line.split()
-            if len(parts) >= 2:
-                try:
-                    return float(parts[1])  # minimizedAffinity kcal/mol
-                except ValueError:
-                    continue
+        if "-----+" in line:
+            found_separator = True
+            continue
+        if found_separator:
+            line = line.strip()
+            if line and line[0].isdigit():
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        return float(parts[1])  # minimizedAffinity kcal/mol
+                    except ValueError:
+                        continue
     return None
 
 
