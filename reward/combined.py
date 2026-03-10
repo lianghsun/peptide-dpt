@@ -25,7 +25,7 @@ class CombinedReward:
         box_config: str,
         reference_smiles_path: str,
         weights: dict[str, float] | None = None,
-        docking_workers: int = 4,
+        exhaustiveness: int = 2,
     ):
         self.weights = weights or {"docking": 0.60, "sa_score": 0.25, "diversity": 0.15}
         assert abs(sum(self.weights.values()) - 1.0) < 1e-6, "Weights must sum to 1"
@@ -33,6 +33,7 @@ class CombinedReward:
         self.docking = DockingReward(
             receptor=receptor_pdb,
             box_config=box_config,
+            exhaustiveness=exhaustiveness,
         )
         self.diversity = DiversityReward(reference_smiles_path)
 
@@ -59,8 +60,11 @@ class CombinedReward:
         )
         return total
 
-    def batch(self, selfies_list: list[str]) -> list[float]:
-        return [self(s) for s in selfies_list]
+    def batch(self, selfies_list: list[str], n_workers: int = 16) -> list[float]:
+        """Compute rewards in parallel using ThreadPoolExecutor."""
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=n_workers) as ex:
+            return list(ex.map(self.__call__, selfies_list))
 
     @classmethod
     def from_config(cls, cfg: dict) -> "CombinedReward":
@@ -70,4 +74,5 @@ class CombinedReward:
             box_config="docking/box_config.json",
             reference_smiles_path=reward_cfg["diversity"]["reference_smiles_path"],
             weights=reward_cfg["weights"],
+            exhaustiveness=reward_cfg["docking"].get("exhaustiveness", 2),
         )

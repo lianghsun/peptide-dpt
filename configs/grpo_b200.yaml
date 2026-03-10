@@ -15,7 +15,7 @@ reward:
     center_y: null
     center_z: null
     box_size: 22.0
-    exhaustiveness: 8
+    exhaustiveness: 2
     gnina_bin: gnina
   diversity:
     reference_smiles_path: data/processed/psma_known_smiles.txt

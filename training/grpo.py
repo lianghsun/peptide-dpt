@@ -58,13 +58,8 @@ def make_reward_fn(reward_model: CombinedReward, tokenizer: SelfiesTokenizer):
     """Return a reward function compatible with TRL GRPOTrainer."""
 
     def reward_fn(completions: list[str], **kwargs) -> list[float]:
-        # completions are raw decoded strings from the model
-        rewards = []
-        for completion in completions:
-            # The completion string is the raw token sequence; treat as SELFIES
-            r = reward_model(completion)
-            rewards.append(r)
-        return rewards
+        # Batch all completions in parallel to maximise CPU utilisation
+        return reward_model.batch(completions)
 
     return reward_fn
 
