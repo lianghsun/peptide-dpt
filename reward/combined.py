@@ -60,7 +60,7 @@ class CombinedReward:
         )
         return total
 
-    def batch(self, selfies_list: list[str], n_workers: int = 16) -> list[float]:
+    def batch(self, selfies_list: list[str], n_workers: int = 4) -> list[float]:
         """Compute rewards in parallel using ThreadPoolExecutor."""
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=n_workers) as ex:

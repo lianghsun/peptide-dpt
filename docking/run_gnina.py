@@ -138,7 +138,7 @@ class GninaDocking:
 
             try:
                 result = subprocess.run(
-                    cmd, capture_output=True, text=True, timeout=120, env=env
+                    cmd, capture_output=True, text=True, timeout=300, env=env
                 )
                 score = parse_gnina_score(result.stdout)
                 if score is None:
