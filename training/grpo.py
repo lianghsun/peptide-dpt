@@ -130,7 +130,7 @@ def main():
     )
 
     log.info("Starting GRPO training...")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=True)
     trainer.save_model(f"{g['output_dir']}/best")
     log.info(f"GRPO model saved → {g['output_dir']}/best")
 
