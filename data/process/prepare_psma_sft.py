@@ -125,8 +125,8 @@ def extend_tokenizer_with_potency(tokenizer: SelfiesTokenizer, vocab_path: str):
     for tok in POTENCY_TOKENS.values():
         if tok not in tokenizer.token2id:
             new_id = tokenizer.vocab_size
-            tokenizer.token2id[tok] = new_id
-            tokenizer.id2token[new_id] = tok
+            tokenizer._selfies_vocab[tok] = new_id
+            tokenizer._selfies_id2token[new_id] = tok
             changed = True
     if changed:
         tokenizer.save(vocab_path)
