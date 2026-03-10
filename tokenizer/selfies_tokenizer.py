@@ -81,9 +81,20 @@ class SelfiesTokenizer(PreTrainedTokenizerBase):
     # Keep token2id / id2token as aliases for backward compat
     @property
     def added_tokens_decoder(self) -> dict:
-        # Required by PreTrainedTokenizerBase.save_pretrained; we manage
-        # our own vocab via save_vocabulary() so no HF added tokens needed.
         return {}
+
+    @property
+    def added_tokens_encoder(self) -> dict:
+        return {}
+
+    def save_pretrained(self, save_directory: str, **kwargs) -> Tuple[str]:
+        """Override to skip HF token machinery and just save our vocab JSON."""
+        import os
+        os.makedirs(save_directory, exist_ok=True)
+        vocab_path = os.path.join(save_directory, "selfies_vocab.json")
+        with open(vocab_path, "w") as f:
+            json.dump(self._selfies_vocab, f, indent=2)
+        return (vocab_path,)
 
     @property
     def token2id(self) -> dict[str, int]:
