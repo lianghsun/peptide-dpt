@@ -124,6 +124,11 @@ def main():
         processing_class=tokenizer,  # needed for TRL to decode completions before reward
     )
 
+    # Ensure stateful_callbacks has required keys — prevents KeyError on checkpoint
+    # save when resuming from a manually created trainer_state.json.
+    if "TrainerControl" not in trainer.state.stateful_callbacks:
+        trainer.state.stateful_callbacks["TrainerControl"] = {}
+
     log.info("Starting GRPO training...")
     trainer.train(resume_from_checkpoint=True)
     trainer.save_model(f"{g['output_dir']}/best")
