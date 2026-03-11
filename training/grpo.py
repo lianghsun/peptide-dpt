@@ -103,6 +103,7 @@ def main():
         epsilon=g["clip_range"],                   # PPO clip range
         max_completion_length=g["max_new_tokens"],
         temperature=g.get("temperature", 1.0),
+        ddp_timeout=7200,  # 2h — gnina docking per batch can take minutes
     )
 
     # Load fine-tuned model as policy
@@ -130,7 +131,9 @@ def main():
         trainer.state.stateful_callbacks["TrainerControl"] = {}
 
     log.info("Starting GRPO training...")
-    trainer.train(resume_from_checkpoint=True)
+    output_dir = Path(g["output_dir"])
+    has_checkpoint = any(output_dir.glob("checkpoint-*"))
+    trainer.train(resume_from_checkpoint=has_checkpoint)
     trainer.save_model(f"{g['output_dir']}/best")
     log.info(f"GRPO model saved → {g['output_dir']}/best")
 

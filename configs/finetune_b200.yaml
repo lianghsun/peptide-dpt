@@ -10,10 +10,10 @@ data:
 
 training:
   output_dir: checkpoints/finetune
-  num_train_epochs: 30
-  per_device_train_batch_size: 64
-  per_device_eval_batch_size: 64
-  gradient_accumulation_steps: 1       # effective batch = 64 * 8 = 512
+  num_train_epochs: 50
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 16
+  gradient_accumulation_steps: 2       # effective batch = 16 * 8 * 2 = 256
   learning_rate: 0.00005
   lr_scheduler_type: cosine
   warmup_ratio: 0.1
@@ -21,13 +21,13 @@ training:
   bf16: true
   logging_steps: 5
   eval_strategy: steps
-  eval_steps: 20
+  eval_steps: 10
   save_strategy: steps
-  save_steps: 20
+  save_steps: 10
   save_total_limit: 5
   load_best_model_at_end: true
   metric_for_best_model: eval_loss
-  early_stopping_patience: 8
+  early_stopping_patience: 5
   dataloader_num_workers: 8
   deepspeed: ds_configs/zero2.json
   report_to: wandb
